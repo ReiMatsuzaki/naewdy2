@@ -1,0 +1,6 @@
+{
+    "comment": "first test",
+    "assign" : { "dir":"__p__",
+		 "use_mo": false,
+		 "use_ci": false }
+}
