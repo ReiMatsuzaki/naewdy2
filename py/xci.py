@@ -38,7 +38,8 @@ def check_near_mat(a, b, label, eps):
             if(diff>eps):
                 raise MatNearError(a,b,i,j,label)
 
-def calc_x(dir_dict, katom, dx, dir_out, m_xci="1", m_xmo="1"):
+def calc_x(dir_dict, dx, dir_out, m_xci="1", m_xmo="1", m_xao="cnm",
+           m1=None, m2=None):
     """
     dir_dict : output directory list
     .          dir_dict[n] : calculation results for x0+n.dx
@@ -97,12 +98,35 @@ def calc_x(dir_dict, katom, dx, dir_out, m_xci="1", m_xmo="1"):
     except MatNearError as e:
         print "Warning"
         print e.msg
-        
-    dzmat = gtomat(gs, op_dw(2))    
-    for mu in range(nao):
-        for nu in range(nao):
-            if(gs[nu].katom != katom ):
-                dzmat[mu,nu] = 0
+
+    # - AO -
+    dzmat = gtomat(gs, op_dw(2))
+    if(m_xao==None):
+        dzmat[:,:] = 0.0
+    elif(m_xao=="cnm"):
+        if(m1 is None or m2 is None):
+            raise RuntimeError("m1 and m2 is necessary")
+        for mu in range(nao):
+            for nu in range(nao):
+                if(gs[nu].katom == 1 ):
+                    dzmat[mu,nu] *= m2/(m1+m2)
+                elif(gs[nu].katom == 2 ):
+                    dzmat[mu,nu] *= -m1/(m1+m2)
+                else:
+                    raise RuntimeError("invalid atom index")
+    elif(m_xao=="1"):
+        for mu in range(nao):
+            for nu in range(nao):
+                if(gs[nu].katom != 1 ):
+                    dzmat[mu,nu] = 0
+    elif(m_xao=="2"):
+        for mu in range(nao):
+            for nu in range(nao):
+                if(gs[nu].katom != 2 ):
+                    dzmat[mu,nu] = 0
+    else:
+        raise RuntimeError("unsupported m_xao")
+    
     if(m_xmo=="analytic"):
         xmo = 0.5*dot(tr(cmo0), dot(dzmat-tr(dzmat), cmo0))
     elif(m_xmo=="1"):

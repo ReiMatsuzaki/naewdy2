@@ -117,11 +117,11 @@ class TestDVR(unittest.TestCase):
         h = np.zeros((n,n))
         h[:,:] = np.diag([m*w*w/2*x*x for x in dvr.xs]) -1/(2*m)*dvr.dmat(2)
 
-        c_diag = uni_inte(h, dt, c0, inte="diag")
-        c_kry10  = uni_inte(h, dt, c0, krylov_num=10, inte="krylov")
-        c_kry20  = uni_inte(h, dt, c0, krylov_num=20, inte="krylov")
+        c_diag = uni_inte(h, dt, c0, opts={"inte":"diag"})
+        c_kry10  = uni_inte(h, dt, c0, opts={"inte":"krylov", "krylov_num":10})
+        c_kry20  = uni_inte(h, dt, c0, opts={"inte":"krylov", "krylov_num":20})
         #c_kry30  = uni_inte(h, dt, c0, krylov_num=30, inte="krylov")
-        c_kry_full  = uni_inte(h, dt, c0, krylov_num=n, inte="krylov")
+        c_kry_full  = uni_inte(h, dt, c0, opts={"inte":"krylov", "krylov_num":n})
 
         print np.sum(abs(h-np.transpose(h.conj())))
         self.assertAlmostEqual(1.0, norm(c_diag))

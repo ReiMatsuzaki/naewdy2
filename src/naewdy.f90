@@ -39,36 +39,40 @@ contains
     ! -- initialize --
     call err_handle_begin
     call QChem_new; check_err()
-    call new_json
+    call new_json; check_err()
     call mkdirp_if_not("out"); check_err()
     
-    ! -- run gamess --    
-    call QChem_calc; check_err()    
+    ! -- run gamess --
+    call QChem_calc; check_err()
     allocate(T(nao_*(nao_+1)/2), M(nao_,nao_))
     
     call object_set_i(o, "nao", nao_); check_err()
     call object_set_i(o, "nmo", nmo_); check_err()
     call object_set_i(o, "nwks", NWKS_); check_err()
     call object_set_i(o, "nstate", nstate_); check_err()
+    call object_set_i(o, "nfrozen", nfrozen_); check_err()
+    call object_set_i(o, "nact", nactive_); check_err()
 
     ! -- AO --
     fn = "out/"//"nshel.json"; ifile=ifile+1
     call open_w(ifile, fn); check_err()
     call Nshel_dump(ifile); check_err()
     close(ifile)
+    
 
-    ! -- AO matrix --        
+    ! -- AO matrix --
     call QChem_daread(12, nao_*(nao_+1)/2, T(:)); call t2s(T,M)
     fn = "out/"//"s.csv"; ifile=ifile+1
     call open_w(ifile, fn); check_err()
     call dump_dmat(M, ifile); check_err()
     close(ifile)
-
+    
     call QChem_daread(13, nao_*(nao_+1)/2, T(:)); call t2s(T,M)
     fn = "out/"//"t.csv"; ifile=ifile+1
     call open_w(ifile, fn); check_err()
     call dump_dmat(M, ifile); check_err()
     close(ifile)
+
 
     call QChem_daread(11, nao_*(nao_+1)/2, T(:)); call t2s(T,M)
     fn = "out/"//"h.csv"; ifile=ifile+1
@@ -111,21 +115,30 @@ contains
 
     call read_ci_energy(eci(:)); check_err()
 
-    if(use_ci_asgn_) then       
+    if(use_ci_asgn_) then
+       if(size(c,1).ne.size(ci_c0_,1) .or. size(c,2).ne.size(ci_c0_,2)) then
+          throw_err("shape of c and ci are different", 1)
+       end if
        call asgn_asgn(ci_asgn_, c, eci, ci_c0_); check_err()
        done_ci_asgn_ = .true.
     end if
 
-    fn = "out/"//"cci.csv"; ifile=ifile+1
-    call open_w(ifile, fn); check_err()
-    call dump_dmat(c, ifile)
-    close(ifile)
+    fn = "out/"//"cci.csv"; ifile=ifile+10
+    call open_w(8989111, fn); check_err()
+    call dump_dmat(c, 8989111)
+    close(8989111)
     
-    fn = "out/"//"eci.csv"; ifile=ifile+1
+    fn = "out/eci.csv"; ifile=ifile+1
     call open_w(ifile, fn); check_err()
     call dump_dvec(eci, ifile); check_err()
     close(ifile)
 
+    ! -- density matrix --
+    fn = "out/dm1.csv"; ifile = ifile + 1
+    call open_w(ifile, fn); check_err()
+    call dump_dm1(ifile, c); check_err()
+    close(ifile)
+    
     ! -- asgn --
     if(done_mo_asgn_) then
        fn = "out/asgn_mo.csv"; ifile=ifile+1
@@ -148,18 +161,83 @@ contains
     close(ifile)
     
   end subroutine run
+  ! ==== Main ====
+  subroutine dump_dm1(ifile, cci)
+    use Mod_QChem
+    integer, intent(in) :: ifile
+    double precision, intent(in) :: cci(:,:)
+    integer :: idx, i,j,ii,jj,n,m, nmo
+    double precision :: aijIJ
+    double precision, allocatable :: dm1(:,:,:,:)
+
+    nmo = nactive_ + nfrozen_
+    allocate(dm1(nmo,nmo,nstate_,nstate_))
+    dm1 = 0
+        
+    do i = 1, nfrozen_
+       do ii = 1, nwks_
+          do n = 1, nstate_
+             do m = 1, nstate_
+                dm1(i,i,n,m) = dm1(i,i,n,m) + cci(ii,n)*cci(ii,m)*2
+             end do
+          end do
+       end do
+    end do
+    
+    do idx = 1, na_
+       ii = ia_(1,idx)
+       jj = ia_(2,idx)
+       i  = ia_(3,idx)
+       j  = ia_(4,idx)
+       aijIJ = va_(idx)
+       if(ii.eq.jj) then
+          do n = 1, nstate_
+             do m = 1, nstate_
+                dm1(i,i,n,m) = dm1(i,i,n,m) + cci(ii,n)*cci(ii,m)*aijIJ
+             end do
+          end do
+       else
+          do n = 1, nstate_
+             do m = 1, nstate_
+                dm1(i,j,n,m) = dm1(i,j,n,m) + cci(ii,n)*cci(jj,m)*aijIJ
+                dm1(j,i,n,m) = dm1(j,i,n,m) + cci(jj,n)*cci(ii,m)*aijIJ
+             end do
+          end do
+       end if
+    end do
+
+    write(ifile,'(A)') "i,j,k,l,val"
+    do m = 1, nstate_
+    do n = 1, nstate_
+    do j = 1, nmo
+    do i = 1, nmo
+       write(ifile, '(i0,","i0,",",i0,",",i0,",",f20.10)') i,j,n,m,dm1(i,j,n,m)
+    end do
+    end do
+    end do
+    end do
+ 
+  end subroutine dump_dm1
   ! ==== Init ====
   subroutine new_json
     use Mod_fjson
+    use Mod_sys, only : path_exists
     character(100) :: prev_out, comment
     integer, parameter :: ifile = 2345121
     type(value) :: v
     type(object) :: o, oo
     logical :: use_mo, use_ci
-   
-    
-    call loads_json_file("naewdy.in.json", ifile, v); check_err()
-    call value_get_o(v, o); check_err()
+
+    write(*,*) "new_json begin"
+    call open_r(ifile, "naewdy.in.json"); check_err()
+    close(ifile)
+    if(path_exists("naewdy.in.json")) then
+       ; check_err()
+       call loads_json_file("naewdy.in.json", ifile+1, v); check_err()
+       call value_get_o(v, o); check_err()
+    else
+       call object_set_s(o, "comment", ""); check_err()
+    end if
 
     call object_get_s(o, "comment", comment); check_err()
     write(*,*) "comment:", comment
@@ -303,8 +381,19 @@ contains
   end subroutine read_ci_energy
 end module Mod_GugaPrint
 
-subroutine naewdyx
+subroutine naewdyx(res)  
   use Mod_GugaPrint, only : run
+  use Mod_err_handle
+  implicit none
+  integer, intent(out) :: res
+  
   call run
+  if(get_err() .eq. 0) then
+     res = 0
+     write(0,*) "Success in naewdy"
+  else
+     res = 1
+     write(0,*) "Error in naewdy. Stop program"
+  end if
 end subroutine naewdyx
 

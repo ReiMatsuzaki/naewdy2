@@ -33,7 +33,7 @@ class DVR:
         """
         
 
-    def at(self, c, x_or_xs, nd=0):
+    def at(self, c, x_or_xs=None, nd=0):
         """
         gives function value with coefficient c.
 
@@ -52,7 +52,10 @@ class DVR:
             len(c)!=self.num
             len(c)={0}
             self.num={1}""".format(len(c), self.num))
-        
+
+        if(x_or_xs is None):
+            return c / np.sqrt(self.ws)
+            
         if(isinstance(x_or_xs, list)):
             xs = np.array(x_or_xs)
         elif(isinstance(x_or_xs, np.ndarray)):
@@ -64,10 +67,6 @@ class DVR:
         phiss = self.phi(xs, nd)
         uc = dot(self.u, c)
         ys = np.dot(uc, phiss)
-#        for x in xs:
-#            phis = self.phi(x, nd)
-#            y = dot(uc, phis)
-#            ys.append(y)
 #            
         if(len(ys)==1):
             return ys[0]
@@ -165,12 +164,30 @@ class ExpDVR(DVR):
         self.xN = xN
         self.L = xN-x0
         self.dx = self.L/self.num
+        self.xs = np.linspace(x0+self.dx, x0+self.num*self.dx, self.num)
+        self.ws = np.ones(self.num) * self.dx
+        """
+        als = np.array(range(1,self.num+1))
+        js = np.array(range(-n,n+1))
+        """
+        als = np.arange(1, self.num+1)
+        js = np.arange(-n, n+1)
+        ajs = np.outer(js, als)
+        c = sqrt(1.0/self.num)
+        z = -2.0j*pi/self.num
+        self.u = np.reshape(c*exp(z*ajs), (self.num, self.num))
+        """
+        for j in range(-n,n+1):
+            self.u[n+j,:] = c * exp(j*z*als)
+        """
+        """
         for al in range(self.num):
             self.xs[al] = x0 + (al+1)*self.dx
             self.ws[al] = self.dx
         for j in range(-n,n+1):
             for al in range(self.num):
                 self.u[n+j,al] = sqrt(1.0/self.num) * exp(-2.0j*j*(al+1)*pi/(self.num))
+        """
 
     def __str__(self):
         return "ExpDVR(n={0}, x0={1}, x1={2})".format(self.n, self.x0, self.xN)

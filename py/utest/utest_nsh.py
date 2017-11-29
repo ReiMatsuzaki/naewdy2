@@ -199,7 +199,7 @@ class TestMatEle(TestCase):
         ref = gtomat(gs, op_na(nucs.ws[0])) + 0.3*gtomat(gs, op_na(nucs.ws[1]))
         self.assertMatProp("hermite", calc)
         self.assertMatEqual(ref, calc, msg="test_nshel.Check Nuclear Attraction")   
-
+        
     def test_nshel_h2(self):
         out = "gms/h2/out"
         with open(os.path.join(out, "nshel.json")) as f:

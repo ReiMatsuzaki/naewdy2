@@ -8,7 +8,7 @@ def rep_copy(replist, fn0, fn1):
         with open(fn1, "w") as fo:
             for line in fi.readlines():
                 for (k0, k1) in replist:
-                    line = re.sub(k0, k1, line)
+                    line = re.sub(k0, str(k1), line)
                 fo.write(line)
 
 def extract_lines(key0, key1, fn0, fn1, mode, n=1):

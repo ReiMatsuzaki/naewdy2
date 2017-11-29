@@ -166,7 +166,7 @@ contains
        ia(3,i) = imo
        ia(4,i) = jmo
        va(i) = rwork_(i)
-    end do
+    end do    
     deallocate(conf1, conf2)
   end subroutine aij_calc
   subroutine aij_delete
@@ -398,7 +398,7 @@ module Mod_QChem
   use Mod_err_handle
   use Mod_aij
   implicit none
-  integer :: nao_, nmo_, nwks_, nstate_
+  integer :: nao_, nmo_, nwks_, nstate_, nfrozen_, nactive_
   logical :: get_hIJ_
   double precision, allocatable :: hIJ_(:,:)
   character(10) :: type_hmat_ = ""
@@ -655,13 +655,12 @@ contains
     use Mod_gamess_common, only : NWKS
     use Mod_math, only : dump_dmat
     integer, parameter :: MXRT=100
+    character(10) :: type_calc
     double precision ENUCR,EELCT,ETOT,SZ,SZZ,ECORE,ESCF,EERD,E1,E2, &
          VEN,VEE,EPOT,EKIN,ESTATE,STATN,EDFT,EDISP
     COMMON /ENRGYS/ ENUCR,EELCT,ETOT,SZ,SZZ,ECORE,ESCF,EERD,E1,E2, &
          VEN,VEE,EPOT,EKIN,ESTATE(MXRT),STATN,EDFT(2),EDISP
-    double precision GUESS, CIDRT
-    DATA CIDRT/8HCIDRT   /
-    character(10) :: type_calc
+    
     type_calc = "energx"
     !type_calc = "direct"
     
@@ -670,17 +669,45 @@ contains
 
     select case(type_calc)
     case("direct")
-       call ONEEI
+       call calc_direct
+    case("energx")
+       call ENERGX
+    case default
+       throw_err("not supported",1)
+    end select
+
+    write(*,*) "end of QChem.calc"
+    if(.not.get_hIJ_) then
+       throw_err("failed to get H_CSF.",1)
+    end if
+    
+    call aij_calc(ia_, va_, na_); check_err()
+    
+    nfrozen_ = minval(ia_(3,:))-1
+    nactive_ = maxval(ia_(3,:)) - nfrozen_
+
+    NWKS_ = NWKS
+    NSTATE_ =  INT(STATN)
+
+    !call SEQREW(NFT12)
+    !READ (NFT12) NSTATE_,NWKS_,tit1,tit2
+    !call DIRCLO(NFT12,'KEEP')    
+    
+  end subroutine QChem_calc
+  subroutine calc_direct
+    integer, parameter :: MXRT=100
+    double precision ENUCR,EELCT,ETOT,SZ,SZZ,ECORE,ESCF,EERD,E1,E2, &
+         VEN,VEE,EPOT,EKIN,ESTATE,STATN,EDFT,EDISP
+    COMMON /ENRGYS/ ENUCR,EELCT,ETOT,SZ,SZZ,ECORE,ESCF,EERD,E1,E2, &
+         VEN,VEE,EPOT,EKIN,ESTATE(MXRT),STATN,EDFT(2),EDISP
+    double precision GUESS, CIDRT
+    DATA CIDRT/8HCIDRT   /
+
+    call ONEEI
        call JANDK
        call GUESMO(GUESS)
        call calc_orbital
        call QChem_assign_mo
-
-       if(done_mo_asgn_) then
-          call open_w(261, "asgn_mo.csv"); check_err()
-          call dump_dmat(mo_asgn_, 261, 0.1d0); check_err()
-          close(261)
-       end if
        
        call DRTGEN(-5,CIDRT)
        call TRFMCX(-5,0,0,0,.FALSE.,.TRUE.,&
@@ -696,27 +723,7 @@ contains
        !       call QChem_assign_ci
        CALL GUGADM(0)
        !       call GUG2DM(0)
-    case("energx")
-       call ENERGX
-    case default
-       throw_err("not supported",1)
-    end select
-
-    write(*,*) "end of QChem.calc"
-    if(.not.get_hIJ_) then
-       throw_err("failed to get H_CSF.",1)
-    end if
-    
-    call aij_calc(ia_, va_, na_); check_err()
-
-    NWKS_ = NWKS
-    NSTATE_ =  INT(STATN)
-
-    !call SEQREW(NFT12)
-    !READ (NFT12) NSTATE_,NWKS_,tit1,tit2
-    !call DIRCLO(NFT12,'KEEP')    
-    
-  end subroutine QChem_calc
+  end subroutine calc_direct
   subroutine calc_orbital
     implicit none
     double precision RRSHFT,EXTTOL,DMPTOL,VSHTOL

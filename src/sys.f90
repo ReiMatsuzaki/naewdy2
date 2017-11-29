@@ -21,6 +21,20 @@ contains
     write(cmd, "('ls ', A, ' > /dev/null 2>&1 || mkdir -p ', A )") trim(path), trim(path)
     call system(cmd)
   end subroutine mkdirp_if_not
+  function path_exists(path) result(res)
+    character(*), intent(in) :: path
+    logical :: res
+    integer, parameter :: ifile = 999999
+    open(ifile, file=path, status="old", err=999)
+    res = .true.
+    close(ifile)
+    return
+    
+999 continue
+    res = .false.
+    return
+  
+  end function path_exists
 end module mod_sys
 
 module Mod_csv

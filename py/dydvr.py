@@ -1,5 +1,6 @@
 import numpy as np
 import os
+import datetime
 
 from naewdy2.dvr import *
 from naewdy2.math import *
@@ -133,8 +134,9 @@ class Prob(DyDvrValOne):
         return ys
     
 class Psi(DyDvrVal):
-    def __init__(self, xs):
+    def __init__(self, xs, fn="psi.csv"):
         self.xs = xs
+        self.fn = fn
         
     def init(self, **kwargs):
         self.nel = kwargs["nel"]
@@ -157,7 +159,7 @@ class Psi(DyDvrVal):
             dat[lim] = y.imag
 
         df = pd.DataFrame(dat, columns=columns)
-        df.to_csv(join(dir0, "psi.csv"), index=None)
+        df.to_csv(join(dir0, self.fn), index=None)
         
 class ProbCI(DyDvrValOne):
     def __init__(self, nstate):
@@ -353,6 +355,9 @@ def hdot(x, y):
 def norm(x):
     return np.sqrt(hdot(x,x).real)
 
+def get_now():    
+    return datetime.datetime.now().strftime('%Y/%m/%d %H:%M:%S')
+    
 class DyDVR:
     def __init__(self, mass, dvr, c0, nel, out="out",
                  inte="diag", krylov_num=None):
@@ -371,7 +376,12 @@ class DyDVR:
         self.dvr = dvr
 
         if((dvr.num, nel) != c0.shape):
-            raise RuntimeError("(dvr.num,nel)!=c0.shape")
+            raise RuntimeError("""(dvr.num,nel)!=c0.shape
+dvr.num = {0}
+nel = {1}            
+c0.shape = {2}
+""".format(dvr.num, nel, c0.shape))
+            
 
         self.c = np.reshape(c0, (nel*dvr.num))
         norm2 = dot(self.c.conj(), self.c)
@@ -410,8 +420,6 @@ class DyDVR:
                             h[ai,bj] = h[ai,bj] + tmp
                         if(i==j):
                             h[ai,bj] = h[ai,bj] -1/(2*self.mass)*D2[a,b]
-                        if(xij!=None):
-                            h[ai,bj] = -1/self.mass * xij[a,i,j]*D1[a,b]
                             
         (self.e, self.u) = eigh_sort(h)
         self.uH = tr(self.u)
@@ -461,15 +469,17 @@ class DyDVR:
         hel : hel[a,i,j] gives electronic Hamiltonian matrix element (i,j) at dvr.xs[a]
         xij : xij[a,i,j] gives derivative coupling matrix element (i,j) at dvr.xs[a]
         """
-        print "DyDVR.precalc_data_nac1 begin"
+        print "DyDVR.precalc_data_nac1 begin", get_now()
         self.nel = hel.shape[1]
         D1 = self.dvr.dmat(1)
         D2 = self.dvr.dmat(2)
 
-        print "DyDVR.precalc_data_nac1 build H mat begin"
+        print "DyDVR.precalc_data_nac1 build H mat begin", get_now()
         nnuc = self.dvr.num
         nel = self.nel
-        h = np.zeros((nel*nnuc, nel*nnuc))
+        dtype = hel.dtype
+        print "dtype:", dtype
+        h = np.zeros((nel*nnuc, nel*nnuc), dtype=dtype)
 
         elid = np.identity(nel)
         for a in range(nnuc):
@@ -491,14 +501,19 @@ class DyDVR:
             
         print "DyDVR.precalc_data_nac1 build H mat end"
 
+        print "inte:", self.inte
         if(self.inte=="eig"):
-            print "DyDVR.precalc_data_nac1 diag H begin"
-            (self.e, self.u) = eigh_sort(h)
-            self.uH = tr(self.u)
+            print "DyDVR.precalc_data_nac1 diag H begin", get_now()
+            (self.e, self.u) = np.linalg.eig(h)
+            if(dtype==complex):
+                self.uH = tr(self.u.conjugate())
+            elif(dtype==float):
+                self.uH = tr(self.u)
+            else:
+                raise RuntimeError("invalid dtype. dtype={0}".format(dtype))
             print "DyDVR.precalc_data_nac1 diag H end"
-
         
-        print "DyDVR.precalc_data_nac1 end"
+        print "DyDVR.precalc_data_nac1 end", get_now()
         
     def update(self, it, dt, ntskip):
 

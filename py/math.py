@@ -1,4 +1,5 @@
-import types
+#import types
+import os
 
 import numpy as np
 import pandas as pd
@@ -16,7 +17,111 @@ def eigh_sort(h):
     e = np.array([ei for (ei,ui) in eu_list])
     u = np.transpose(np.array([ui for (ei,ui) in eu_list]))
     return (e,u)
+               
+def csv2mat(fn):
+    df = pd.read_csv(fn)
+    cols = df.columns
 
+    if("re" in cols and "im" in cols):
+        num_index = len(cols)-2
+    else:
+        num_index = len(cols)-1
+        
+    if(num_index==1):
+        return iv2vec(df)
+    elif(num_index==2):
+        return ijv2mat(df)
+    elif(num_index==3):
+        return ijkv2ten(df)
+    elif(num_index==4):
+        return ijklv2ten4(df)
+
+def mat2csv(mat, csv, eps=None):
+
+    if(not os.path.exists(os.path.dirname(csv))):
+        os.makedirs(os.path.dirname(csv))
+    
+    n = len(mat.shape)
+    if(n==1):
+        df = vec2iv(mat)
+    elif(n==2):
+        df = mat2ijv(mat)
+    elif(n==3):
+        df = ten2ijkv(mat)
+    elif(n==4):
+        df = ten42ijklv(mat, eps)
+    else:
+        raise RuntimeError("not supported")
+    df.to_csv(csv, index=None)
+    
+def ijklv2ten4(df):
+
+    if(isinstance(df, str)):
+        df2 = pd.read_csv(df)
+        return ijklv2ten4(df2)
+    
+    try:
+        ilist = df["i"]
+        jlist = df["j"]
+        klist = df["k"]
+        llist = df["l"]
+    except Exception as e:    
+        print e.args
+        raise RuntimeError("""invalid columns
+columns = {0}
+        """.format(df.columns))
+        
+    ni = max(ilist)
+    nj = max(jlist)
+    nk = max(klist)
+    nl = max(llist)
+    if("val" in df):
+        vlist = df["val"]
+        dtype = float
+    elif("re" in df and "im" in df):
+        vlist = df["re"] + 1.0j * df["im"]
+        dtype = complex
+    else:
+        raise RuntimeError("invalid columns")
+
+    mat = np.zeros((ni,nj,nk,nl), dtype=dtype)
+    for (i,j,k,l,v) in zip(ilist,jlist,klist,llist,vlist):
+        mat[i-1,j-1,k-1,l-1]=v
+    return mat        
+
+def ten42ijklv(x, eps=None):
+    (ni,nj,nk,nl) = np.shape(x)
+    ilist = []
+    jlist = []
+    klist = []
+    llist = []
+    vlist = []
+    for i in range(ni):
+        for j in range(nj):
+            for k in range(nk):
+                for l in range(nl):
+                    
+                    if(eps is not None):
+                        v = x[i,j,k,l]
+                        if(eps < abs(v)):
+                            ilist.append(i+1)
+                            jlist.append(j+1)
+                            klist.append(k+1)
+                            llist.append(l+1)
+                            vlist.append(v)
+    i = np.array(ilist)
+    j = np.array(jlist)
+    k = np.array(klist)
+    l = np.array(llist)    
+    v = np.array(vlist)
+    if(isinstance(x[0,0,0,0], complex)):
+        df = pd.DataFrame({"i":i, "j":j, "k":k, "l":l, "re":v.real, "im":v.imag},
+                          columns = ["i","j","k","l", "re","im"])
+    else:
+        df = pd.DataFrame({"i":i, "j":j, "k":k, "l":l, "val":v},
+                           columns = ["i","j","k","l","val"])
+    return df
+        
 def ijkv2ten(df):
     try:
         ilist = df["i"]
@@ -42,8 +147,37 @@ def ijkv2ten(df):
     for (i,j,k,v) in zip(ilist,jlist,klist,vlist):
         mat[i-1,j-1,k-1]=v
     return mat    
-    
+
+def ten2ijkv(x):
+    (ni,nj,nk) = np.shape(x)
+    ilist = []
+    jlist = []
+    klist = []
+    vlist = []
+    for i in range(ni):
+        for j in range(nj):
+            for k in range(nk):
+                ilist.append(i+1)
+                jlist.append(j+1)
+                klist.append(k+1)
+                vlist.append(x[i,j,k])
+    i = np.array(ilist)
+    j = np.array(jlist)
+    k = np.array(klist)
+    v = np.array(vlist)
+    if(isinstance(x[0,0,0], complex)):
+        df = pd.DataFrame({"i":i, "j":j, "k":k, "re":v.real, "im":v.imag},
+                          columns = ["i","j","k","re","im"])
+    else:
+        raise RuntimeError("not impl")
+    return df
+        
 def ijv2mat(df):
+
+    if(isinstance(df, str)):
+        df2 = pd.read_csv(df)
+        return ijv2mat(df2)
+    
     ilist = df["i"]
     jlist = df["j"]
     n = max(ilist)
@@ -90,6 +224,11 @@ def mat2ijv(x, eps=None):
     return df
 
 def iv2vec(df):
+
+    if(isinstance(df, str)):
+        df2 = pd.read_csv(df)
+        return iv2vec(df2)
+    
     ilist = df["i"]
     n = max(ilist)
     if("val" in df):        
