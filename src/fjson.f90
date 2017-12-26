@@ -1469,7 +1469,7 @@ contains
     
   end subroutine load_value
   recursive subroutine load_num(in_ie, out_ie, v)
-    use Mod_math, only : is_i, is_d, convert_i, convert_d
+    use Mod_strutil, only : is_i, is_d, convert_i, convert_d
     integer in_ie, out_ie, ie
     type(value) v
     logical res_i, res_d    

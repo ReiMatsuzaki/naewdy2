@@ -18,5 +18,5 @@ lib/
 *.mod
 *.err
 **/scr/
-
+/uscr/
 

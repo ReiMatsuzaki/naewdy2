@@ -40,12 +40,3 @@ gms:
 	${FC} -E -cpp ${SRC}/naewdy.f90 > ${GAMESS_PATH}/source/naewdy.src
 	echo "start gamess compile"
 	make -C ${GAMESS_PATH} gamess
-
-# ==== utest(nshel) ====
-TARGET=utest_nshel
-MODULES=err_handle const utest nshel ${TARGET}
-OBJS=$(addsuffix .o, ${MODULES})
-${BUILD}/${TARGET}: ${OBJS}
-	${FC} ${FF} $^ -o $@ -llapack -lblas
-check_nshel: ${BUILD}/${TARGET}
-	${BUILD}/${TARGET}

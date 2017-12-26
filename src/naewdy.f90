@@ -1,6 +1,7 @@
 #include "macros.fpp"
 #include "err_handle.f90"
 #include "istream.f90"
+#include "strutil.f90"
 #include "fjson.f90"
 #include "sys.f90"
 #include "const.f90"
