@@ -4,11 +4,13 @@ import numpy as np
 class CIState:
     def __init__(self):
         self.istate = 0
+        self.istate_s = 0
         self.al = []
         self.be = []
         self.ci = []
         self.ene = None
         self.s = None
+        self.e_dmom = []
     def num(self):
         return len(self.ci)
     
@@ -17,6 +19,9 @@ class CIState:
         res += "istate = {0}\n".format(self.istate)
         res += "E      = {0}\n".format(self.ene)
         res += "S      = {0}\n".format(self.s)
+        res += "e_dmom = {0}, {1}, {2}\n".format(self.e_dmom[0],
+                                                 self.e_dmom[1],
+                                                 self.e_dmom[2])
         res += " alpha | beta | coef \n"
         for i in range(self.num()):
             res += str(self.al[i]) + " | "
@@ -52,7 +57,7 @@ def get_ncore(line):
           if s.find("CORE=")>-1]
     return int(ss[0].split("=")[-1])
     
-def CIState_read(fn, sval=None):
+def CIState_read(fn, sval=0.0):
 
     re_ncore = re.compile("NCORE=")
     
@@ -60,8 +65,11 @@ def CIState_read(fn, sval=None):
     re_state = re.compile(r" STATE   ([0-9]+)  ENERGY=      ([-0-9\.]+)  S=  ([-0-9\.]+)")
     re_cicoef = re.compile(r"     ALPHA      |     BETA       | CI COEFFICIENT")
 
+    re_prop_begin = re.compile(r"FSOCI CI PROPERTIES...FOR THE WAVEFUNCTION OF STATE    ([0-9]+)")
+    re_e_dmom = re.compile(r"ELECTROSTATIC MOMENTS")
+
     ncore = None
-    istate = None
+    istate_s = 0
     mode = "none"
     cistates = []
     
@@ -85,21 +93,40 @@ def CIState_read(fn, sval=None):
             if(mode=="head" and res):
                 print "head->value"
                 istate = int(res.group(1))
-                ene = res.group(2)
-                s = res.group(3)
-                cistates.append(CIState())
-                cistates[istate-1].istate = istate
-                cistates[istate-1].ene = float(ene)
-                cistates[istate-1].s = float(s)
-                cistates[istate-1].ene = ene
-                mode = "value"
+                ene = float(res.group(2))
+                s = float(res.group(3))
+                if(abs(s-sval)<0.0001):
+                    istate_s += 1
+                    ci = CIState()
+                    ci.istate = istate
+                    ci.istate_s = istate_s
+                    ci.ene = float(ene)
+                    ci.s = float(s)
+                    ci.ene = ene
+                    cistates.append(ci)
+                    mode = "value"
                 
             res=re_cicoef.search(line)                
             if(mode=="value" and res):
                 print "value->head"
                 print "istate = ", istate
-                read_cicoef(f, ncore, cistates[istate-1])
+                read_cicoef(f, ncore, cistates[istate_s-1])
                 mode = "head"
+                
+            res=re_prop_begin.search(line)
+            if(res):
+                print "prop begin"                
+                istate_s = int(res.group(1))
+                print "istate(s) = ", istate_s
+                mode = "prop_begin"
+
+            res=re_e_dmom.search(line)
+            if(mode=="prop_begin" and res):
+                print "prop_e_dmom begin"                
+                for n in range(6):
+                    line = f.readline()
+                cistates[istate_s-1].e_dmom = map(float, line.split())
+                mode = "none"
 
     res = []
     if(sval is None):

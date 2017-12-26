@@ -8,12 +8,15 @@ dot = np.dot
 def gauss(a,zeta,r0,p0,x):
     return a*np.exp(-zeta*(x-r0)**2 + 1.0j*p0*(x-r0))
 
-def eigh_sort(h):
+def eigh_sort(h, use_reverse=False):
     (e,u) = np.linalg.eigh(h)
     eu_list = []
-    for i in range(len(e)):
+    for i in range(len(e)):        
         eu_list.append((e[i], u[:,i]))
-    eu_list.sort(key=lambda eu:eu[0])
+    if(use_reverse):
+        eu_list.sort(key=lambda eu:-eu[0])
+    else:
+        eu_list.sort(key=lambda eu:+eu[0])
     e = np.array([ei for (ei,ui) in eu_list])
     u = np.transpose(np.array([ui for (ei,ui) in eu_list]))
     return (e,u)
@@ -100,15 +103,18 @@ def ten42ijklv(x, eps=None):
         for j in range(nj):
             for k in range(nk):
                 for l in range(nl):
-                    
+                    v = x[i,j,k,l]
+                    addq = True
                     if(eps is not None):
-                        v = x[i,j,k,l]
-                        if(eps < abs(v)):
-                            ilist.append(i+1)
-                            jlist.append(j+1)
-                            klist.append(k+1)
-                            llist.append(l+1)
-                            vlist.append(v)
+                        if(eps > abs(v)):
+                            addq = False
+                    if(addq):
+                        ilist.append(i+1)
+                        jlist.append(j+1)
+                        klist.append(k+1)
+                        llist.append(l+1)
+                        vlist.append(v)
+                        
     i = np.array(ilist)
     j = np.array(jlist)
     k = np.array(klist)
@@ -148,7 +154,7 @@ def ijkv2ten(df):
         mat[i-1,j-1,k-1]=v
     return mat    
 
-def ten2ijkv(x):
+def ten2ijkv(x, eps=None):
     (ni,nj,nk) = np.shape(x)
     ilist = []
     jlist = []
@@ -157,10 +163,17 @@ def ten2ijkv(x):
     for i in range(ni):
         for j in range(nj):
             for k in range(nk):
-                ilist.append(i+1)
-                jlist.append(j+1)
-                klist.append(k+1)
-                vlist.append(x[i,j,k])
+                v = x[i,j,k]
+                addq = True
+                if(eps is not None):
+                    if(eps > abs(v)):
+                        addq = False
+                if(addq):
+                    ilist.append(i+1)
+                    jlist.append(j+1)
+                    klist.append(k+1)
+                    vlist.append(v)
+                    
     i = np.array(ilist)
     j = np.array(jlist)
     k = np.array(klist)
@@ -168,6 +181,9 @@ def ten2ijkv(x):
     if(isinstance(x[0,0,0], complex)):
         df = pd.DataFrame({"i":i, "j":j, "k":k, "re":v.real, "im":v.imag},
                           columns = ["i","j","k","re","im"])
+    elif(isinstance(x[0,0,0], float)):
+        df = pd.DataFrame({"i":i, "j":j, "k":k, "val":v},
+                          columns = ["i","j","k","val"])
     else:
         raise RuntimeError("not impl")
     return df

@@ -253,3 +253,90 @@ def dvr_load(fn):
     else:
         raise RuntimeError("not supported")
             
+def idx(nel, a, i):
+    return a*nel+i
+    
+def sigma_H(hel, xij, D1, D2, m):
+    """
+    hel : hel[a,i,j] gives el Hamiltonian matrix element (i,j) at dvr.xs[a]
+    xij : xij[a,i,j] gives derivative coupling matrix element (i,j) at dvr.xs[a]
+    """
+    
+    if(len(hel.shape)!=3):
+        raise RuntimeError("invalid shape: hel")
+    
+    if(hel.shape != xij.shape):
+        raise RuntimeError("shape of hel and xij must be equal")
+    
+    nnuc = len(hel[:,0,0])
+    nel  = len(hel[0,:,0])
+
+    if(D1.shape != (nnuc, nnuc) or (D2.shape != D1.shape)):
+        raise RuntimeError("invalid shape: D1 or D2")
+
+    if(type(m) != float):
+        raise RuntimeError("invalid type: m")
+
+    def __func__(c):
+        if(len(c.shape)!=1 or len(c)!=(nnuc*nel)):
+            raise RuntimeError("invalid shape: c")
+    
+        Hc = np.copy(c)
+        Hc[:] = 0.0
+    
+        # -- kinetic --
+        for a in range(nnuc):
+            for b in range(nnuc):
+                a0 = idx(nel,a,0)
+                a1 = idx(nel,a+1,0)
+                b0 = idx(nel,b,0)
+                b1 = idx(nel,b+1,0)
+                Hc[a0:a1] += (-dot(xij[a,:,:],c[b0:b1]) *D1[a,b]
+                              -0.5*D2[a,b]*c[b0:b1] )
+        Hc *= 1.0/m
+        
+        # -- H^{el} --
+        for a in range(nnuc):
+            a0 = idx(nel,a,0)
+            a1 = idx(nel,a+1,0)
+            Hc[a0:a1] += np.dot(hel[a,:,:], c[a0:a1])
+        return Hc
+    return __func__
+
+def build_H(hel, xij, D1, D2, m):
+
+    if(len(hel.shape)!=3):
+        raise RuntimeError("invalid shape: hel")
+    
+    if(hel.shape != xij.shape):
+        raise RuntimeError("shape of hel and xij must be equal")
+    
+    nnuc = len(hel[:,0,0])
+    nel  = len(hel[0,:,0])
+
+    if(D1.shape != (nnuc, nnuc) or (D2.shape != D1.shape)):
+        raise RuntimeError("invalid shape: D1 or D2")
+
+    if(type(m) != float):
+        raise RuntimeError("invalid type: m")
+
+    dtype = hel.dtype
+    h = np.zeros((nel*nnuc, nel*nnuc), dtype=dtype)
+    
+    elid = np.identity(nel)
+    for a in range(nnuc):
+        for b in range(nnuc):
+            a0 = idx(nel,a,0)
+            a1 = idx(nel,a+1,0)
+            b0 = idx(nel,b,0)
+            b1 = idx(nel,b+1,0)
+            h[a0:a1,b0:b1] = -xij[a,:,:]*D1[a,b] -0.5*elid*D2[a,b]
+
+    h *= 1/m
+    
+    for a in range(nnuc):
+        a0 = idx(nel,a,0)
+        a1 = idx(nel,a+1,0)
+        h[a0:a1,a0:a1] += hel[a,:,:]
+
+    return h

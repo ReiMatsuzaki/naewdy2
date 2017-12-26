@@ -198,6 +198,7 @@ def calc_xci(dir_dict, katom, dx, dir_res, m1=None, m2=None,
     ia_vec = nsh.ia_vec()
 
     # -- AO --
+    print "AO begin"
     if(katom is None):
         dzmat[:,:] = 0.0
     elif(katom == "CNM"):
@@ -216,6 +217,7 @@ def calc_xci(dir_dict, katom, dx, dir_res, m1=None, m2=None,
                     dzmat[mu,nu] = 0.0
 
     # -- MO --
+    print "MO begin"
     dp = dir_dict[1]
     ccip = ijv2mat(join(dp, "cci.csv"))
     cmop = ijv2mat(join(dp, "cmo.csv"))[:,0:noccmo]
@@ -227,6 +229,7 @@ def calc_xci(dir_dict, katom, dx, dir_res, m1=None, m2=None,
     xmo =  (dot(tr(cmo0), dot(smat, cmop-cmom))/(2*dx)
             + dot(tr(cmo0), dot(dzmat, cmo0)))
 
+    print "CI begin"
     xci_mo = []
     for n in range(nstate):
         for m in range(nstate):
@@ -236,6 +239,27 @@ def calc_xci(dir_dict, katom, dx, dir_res, m1=None, m2=None,
 
     mat2csv(xci_mo, join(dir_res, "xmo.csv"))
     mat2csv(xci_ci, join(dir_res, "xci.csv"))
+
+    # -- CSF --
+    print "CSF begin"
+    aij = pd.read_csv(join(d0, "aij.csv"))
+    xcsf=np.zeros((nwks,nwks))
+    num = len(aij)
+    for idx in range(num):
+        i = aij["i"][idx]
+        j = aij["j"][idx]
+        ii= aij["I"][idx]
+        jj =aij["J"][idx]
+        v = aij["val"][idx]
+        if(ii!=jj):
+            xcsf[ii-1,jj-1] += v*xmo[i-1,j-1]
+            xcsf[jj-1,ii-1] += v*xmo[j-1,i-1]
+
+    with open(join(dir_res, "xcsf.csv"), "w") as f:
+        f.write("i,j,val\n")
+        for i in range(nwks):
+            for j in range(nwks):
+                f.write("{0},{1},{2}\n".format(i+1,j+1,xcsf[i,j]))    
 
     print "calc_xci end"                
 

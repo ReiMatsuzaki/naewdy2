@@ -346,9 +346,6 @@ def dvrc2molc(nucc, nel, iel):
         c[idx(nel,a,iel-1)] = nucc[a]
     return c
     
-def idx(nel, a, i):
-    return a*nel+i
-    
 def hdot(x, y):
     return dot(x.conj(), y)
 
@@ -357,6 +354,7 @@ def norm(x):
 
 def get_now():    
     return datetime.datetime.now().strftime('%Y/%m/%d %H:%M:%S')
+    
     
 class DyDVR:
     def __init__(self, mass, dvr, c0, nel, out="out",
@@ -374,6 +372,9 @@ class DyDVR:
         
         self.mass = mass
         self.dvr = dvr
+
+        self.D1 = self.dvr.dmat(1)
+        self.D2 = self.dvr.dmat(2)
 
         if((dvr.num, nel) != c0.shape):
             raise RuntimeError("""(dvr.num,nel)!=c0.shape
@@ -397,7 +398,7 @@ c0.shape = {2}
         self.ft.write("val\n")
 
         print "DyDVR.init end"
-    
+
     def precalc_data(self, hel):
         """
         hel : hel[a,i,j] gives electronic Hamiltonian matrix element (i,j) at dvr.xs[a]
@@ -466,42 +467,22 @@ c0.shape = {2}
 
     def precalc_data_nac1(self, hel, xij):
         """
-        hel : hel[a,i,j] gives electronic Hamiltonian matrix element (i,j) at dvr.xs[a]
+        hel : hel[a,i,j] gives el Hamiltonian matrix element (i,j) at dvr.xs[a]
         xij : xij[a,i,j] gives derivative coupling matrix element (i,j) at dvr.xs[a]
         """
         print "DyDVR.precalc_data_nac1 begin", get_now()
-        self.nel = hel.shape[1]
-        D1 = self.dvr.dmat(1)
-        D2 = self.dvr.dmat(2)
-
-        print "DyDVR.precalc_data_nac1 build H mat begin", get_now()
-        nnuc = self.dvr.num
-        nel = self.nel
-        dtype = hel.dtype
-        print "dtype:", dtype
-        h = np.zeros((nel*nnuc, nel*nnuc), dtype=dtype)
-
-        elid = np.identity(nel)
-        for a in range(nnuc):
-            for b in range(nnuc):
-                a0 = self.idx(a,0)
-                a1 = self.idx(a+1,0)
-                b0 = self.idx(b,0)
-                b1 = self.idx(b+1,0)
-                h[a0:a1,b0:b1] = -xij[a,:,:]*D1[a,b] -0.5*elid*D2[a,b]
-
-        h *= 1/self.mass
-        
-        for a in range(nnuc):
-            a0 = self.idx(a,0)
-            a1 = self.idx(a+1,0)
-            h[a0:a1,a0:a1] += hel[a,:,:]
-
-        self.h = h
-            
-        print "DyDVR.precalc_data_nac1 build H mat end"
-
         print "inte:", self.inte
+        self.nel = hel.shape[1]
+
+        if(self.inte == "krylov"):
+            self.hel = hel
+            self.xij = xij
+
+        if(self.inte == "eig" or self.inte == "diag"):
+            print "DyDVR.precalc_data_nac1 build H mat begin", get_now()
+            self.h = build_H(hel, xij, self.D1, self.D2, self.mass)
+            print "DyDVR.precalc_data_nac1 build H mat end", get_now()
+
         if(self.inte=="eig"):
             print "DyDVR.precalc_data_nac1 diag H begin", get_now()
             (self.e, self.u) = np.linalg.eig(h)
@@ -538,15 +519,22 @@ c0.shape = {2}
 
             for j in range(ntskip):
                 if(self.inte=="eig"):
-                    opts = {"inte":self.inte}
+                    opts = {"inte":"eig"}
                     self.c = uni_inte((self.e,self.u,self.uH), dt, self.c,
                                       opts)
-                else:
-                    opts = {"inte":self.inte,"krylov_num":self.krylov_num }
+                elif(self.inte=="diag" ):
+                    opts = {"inte":"diag"}
                     self.c = uni_inte(self.h, dt, self.c, opts)
+                elif(self.inte=="krylov"):
+                    Hc = sigma_H(self.hel, self.xij, self.D1, self.D2, self.mass)
+                    self.c = uni_inte_krylov(
+                        Hc, dt, self.krylov_num, self.c)
+                else:
+                    raise RuntimeError("invalid self.inte")
         
     # == Utils ==
     def idx(self,a,i):
         return idx(self.nel,a,i)
 
 
+    

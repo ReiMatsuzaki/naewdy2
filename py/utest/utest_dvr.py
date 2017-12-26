@@ -131,8 +131,42 @@ class TestDVR(unittest.TestCase):
         print np.sum(abs(c_diag-c_kry20))/len(c_diag)
         #print np.sum(abs(c_diag-c_kry30))/len(c_diag)
         print np.sum(abs(c_diag-c_kry_full))/len(c_diag)
-#
+        
+    def test_sigma_H(self):
+        m = 1.2
+        w = 1.0
+        a = m*w/2
+        x0 = 1.0
+        p0 = 0.0
+        dvr = ExpDVR(3, -3.0, 3.0)
+        n = dvr.num
+        dt = 1.0
+        nel = 2
+
+        D1 = dvr.dmat(1)
+        D2 = dvr.dmat(2)
+
+        c0 = np.zeros(n, dtype=complex)
+        for a in range(len(dvr.xs)):
+            c0[a] = gauss(a=1.0, zeta=a, r0=x0, p0=p0, x=dvr.xs[a])
+        c0 /= norm(c0)
+
+        hel = np.zeros((n,nel,nel))
+        hel[:,0,0] = [m*w*w/2*x*x     for x in dvr.xs]
+        hel[:,1,1] = [m*w*w/2*x*x+1.0 for x in dvr.xs]
+        hel[:,0,1] = [0.1*x           for x in dvr.xs]
+        hel[:,1,0] = hel[:,0,1]
+
+        xij = np.zeros((n,nel,nel))
+        xij[:,1,0] = [0.01*np.exp(-(x-1.0)**2) for x in dvr.xs]
+        xij[:,0,1] = -xij[:,1,0]
+
+        #c = np.array([(jn+ie)/1000.0 for jn in range(n) for ie in range(nel)])
+        c = np.array([(jn+ie)/1000.0 for ie in range(nel) for jn in range(n) ])
+        Hc_sigma = sigma_H(hel, xij, D1, D2, m, c)
+        Hc_build = np.dot(build_H(hel, xij, D1, D2, m), c)
+
+        self.assertAlmostEqual(0.0, np.sum(abs(Hc_sigma-Hc_build))/len(c))
             
 if __name__=='__main__':
     unittest.main()
-        
