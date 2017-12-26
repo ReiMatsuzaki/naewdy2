@@ -69,7 +69,7 @@ def ijklv2ten4(df):
         klist = df["k"]
         llist = df["l"]
     except Exception as e:    
-        print e.args
+        print(e.args)
         raise RuntimeError("""invalid columns
 columns = {0}
         """.format(df.columns))
@@ -134,7 +134,7 @@ def ijkv2ten(df):
         jlist = df["j"]
         klist = df["k"]
     except Exception as e:    
-        print e.args
+        print(e.args)
         raise RuntimeError("invalid columns")
         
     ni = max(ilist)
@@ -282,7 +282,7 @@ if __name__ == '__main__':
                   [3.2, 1.3]])
     df = mat2ijv(x)
     y = ijv2mat(df)
-    print sum(abs(y-x))
+    print(sum(abs(y-x)))
 
 
 def hdot(x, y):
@@ -315,8 +315,8 @@ def uni_inte(h_or_hc, dt, c, opts={}):
 
     if(opts["print_lvl"]>0):
         print 
-        print "math.uni_inte begin"
-        print "inte:", opts["inte"]
+        print("math.uni_inte begin")
+        print("inte:", opts["inte"])
         
     if(inte == "diag"):
         

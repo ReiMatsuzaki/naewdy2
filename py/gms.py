@@ -32,19 +32,19 @@ class Gamess(object):
 def run_gms(base, dirname, jobname="gms", naewdy_json=None, oldout="skip",
             label=""):
 
-    print ""
-    print "run_gms begin", datetime.now().strftime('%Y/%m/%d %H:%M:%S')
-    print label
-    print "dirname = ", dirname
-    print "jobname = ", jobname
+    print("")
+    print("run_gms begin", datetime.now().strftime('%Y/%m/%d %H:%M:%S'))
+    print(label)
+    print("dirname = ", dirname)
+    print("jobname = ", jobname)
 
     if(exists(dirname)):
-        print "calculation is already done."
+        print("calculation is already done.")
         if(oldout=="remove"):
-            print "remove old results."
+            print("remove old results.")
             os.system("rm -rf {0}".format(dirname))
         elif(oldout=="skip"):
-            print "Pass this calculation."
+            print("Pass this calculation.")
             return 1
     
     if(not exists(dirname)):
@@ -88,7 +88,7 @@ def run_gms(base, dirname, jobname="gms", naewdy_json=None, oldout="skip",
         raise RuntimeError("error on calculation.")
     os.chdir(curr_dirname)
     
-    print "calculation success"
+    print("calculation success")
     return 0
     
 def get_vecdat(dirname, jobname="gms"):
@@ -161,17 +161,17 @@ def calc_xci(dir_dict, katom, dx, dir_res, m1=None, m2=None,
     if(dir_res is None):
         dir_res = dir_dict[0]
     
-    print ""
-    print "calc_xci begin", datetime.now().strftime('%Y/%m/%d %H:%M:%S')
-    print label
-    print "dir_dict[0] = ", dir_dict[0]
-    print "dir_res = ", dir_res
-    print "katom:", katom
+    print("")
+    print("calc_xci begin", datetime.now().strftime('%Y/%m/%d %H:%M:%S'))
+    print(label)
+    print("dir_dict[0] = ", dir_dict[0])
+    print("dir_res = ", dir_res)
+    print("katom:", katom)
 
     fn_xci = join(dir_res, "xci.csv")
     if(not force and
        not need_make(fn_xci, join(dir_dict[0], "dm1.csv"))):
-        print "pass calculation"
+        print("pass calculation")
         return
 
     # -- basic information --
@@ -198,7 +198,7 @@ def calc_xci(dir_dict, katom, dx, dir_res, m1=None, m2=None,
     ia_vec = nsh.ia_vec()
 
     # -- AO --
-    print "AO begin"
+    print("AO begin")
     if(katom is None):
         dzmat[:,:] = 0.0
     elif(katom == "CNM"):
@@ -217,7 +217,7 @@ def calc_xci(dir_dict, katom, dx, dir_res, m1=None, m2=None,
                     dzmat[mu,nu] = 0.0
 
     # -- MO --
-    print "MO begin"
+    print("MO begin")
     dp = dir_dict[1]
     ccip = ijv2mat(join(dp, "cci.csv"))
     cmop = ijv2mat(join(dp, "cmo.csv"))[:,0:noccmo]
@@ -229,7 +229,7 @@ def calc_xci(dir_dict, katom, dx, dir_res, m1=None, m2=None,
     xmo =  (dot(tr(cmo0), dot(smat, cmop-cmom))/(2*dx)
             + dot(tr(cmo0), dot(dzmat, cmo0)))
 
-    print "CI begin"
+    print("CI begin")
     xci_mo = []
     for n in range(nstate):
         for m in range(nstate):
@@ -241,7 +241,7 @@ def calc_xci(dir_dict, katom, dx, dir_res, m1=None, m2=None,
     mat2csv(xci_ci, join(dir_res, "xci.csv"))
 
     # -- CSF --
-    print "CSF begin"
+    print("CSF begin")
     aij = pd.read_csv(join(d0, "aij.csv"))
     xcsf=np.zeros((nwks,nwks))
     num = len(aij)
@@ -261,12 +261,12 @@ def calc_xci(dir_dict, katom, dx, dir_res, m1=None, m2=None,
             for j in range(nwks):
                 f.write("{0},{1},{2}\n".format(i+1,j+1,xcsf[i,j]))    
 
-    print "calc_xci end"                
+    print("calc_xci end")
 
 def calc_no(dir_out, dir_res=None, force=False):
 
-    print ""
-    print "calc_no begin"
+    print("")
+    print("calc_no begin")
     if(dir_res is None):
         dir_res = dir_out
         
@@ -274,7 +274,7 @@ def calc_no(dir_out, dir_res=None, force=False):
     fn_res_vec = join(dir_res, "no_vec.csv")
     if(not force and
        not need_make(fn_res_vec, join(dir_out, "dm1.csv"))):
-        print "pass calculation"
+        print("pass calculation")
         return    
     
     with open(join(dir_out,"common.json")) as f:
@@ -295,9 +295,7 @@ def calc_no(dir_out, dir_res=None, force=False):
             for j in range(noccmo):
                 f_vec.write("{0},{1},{2},{3}\n".format(n,i,j,nvec[i,j]))
 
-    print "calc_no end"
-                
-
+    print("calc_no end")
     
 def calc_dip(dir_out, dir_res=None, force=False, label="",
              fn_dm1="dm1.csv", fn_res="dip.csv"):
@@ -305,16 +303,16 @@ def calc_dip(dir_out, dir_res=None, force=False, label="",
     if(dir_res is None):
         dir_res = dir_out
     
-    print ""
-    print "calc_dip begin", datetime.now().strftime('%Y/%m/%d %H:%M:%S')
-    print label
-    print "dir_out = ", dir_out
-    print "dir_res = ", dir_res
+    print("")
+    print("calc_dip begin", datetime.now().strftime('%Y/%m/%d %H:%M:%S'))
+    print(label)
+    print("dir_out = ", dir_out)
+    print("dir_res = ", dir_res)
 
     fn_res = join(dir_res, fn_res)
     if(not force and
        not need_make(fn_res, join(dir_out, fn_dm1))):
-        print "pass calculation"
+        print("pass calculation")
         return
 
     with open(join(dir_out,"common.json")) as f:
@@ -354,6 +352,6 @@ def calc_dip(dir_out, dir_res=None, force=False, label="",
     df = mat2ijv(mat)
     df.to_csv(fn_res, index=None)
 
-    print "calc_dip end"
+    print("calc_dip end")
 
 
