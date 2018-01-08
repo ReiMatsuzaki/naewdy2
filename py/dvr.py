@@ -65,16 +65,24 @@ class DVR:
             pass
 
         phiss = self.phi(xs, nd)
+        
         uc = dot(self.u, c)
-        ys = np.dot(uc, phiss)
-#            
+        ys = dot(uc, phiss)
+
         if(len(ys)==1):
             return ys[0]
         else:
             return np.array(ys)
 
-    def fit(self, fun):
-        return np.array([fun(x)*sqrt(w) for (x,w) in zip(self.xs, self.ws)])
+    def fit(self, fs):
+        """
+        Inputs
+        fs : [complex]
+        .    function values on grid points
+        """
+        if(len(fs)!=len(self.ws)):
+            raise RuntimeError("length of fs must be equal")
+        return fs * sqrt(self.ws)
 
     def to_json(self, fn):
         pass
@@ -304,6 +312,9 @@ def sigma_H(hel, xij, D1, D2, m):
     return __func__
 
 def build_H(hel, xij, D1, D2, m):
+    """
+    Build multi state Hamiltonian.
+    """
 
     if(len(hel.shape)!=3):
         raise RuntimeError("invalid shape: hel")
