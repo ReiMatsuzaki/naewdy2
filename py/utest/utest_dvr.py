@@ -104,7 +104,7 @@ class TestDVR(unittest.TestCase):
             self.assertAlmostEqual(y0, y1, 5, 'n={0}'.format(n))
         
                         
-    def _test_krylov(self):
+    def test_krylov(self):
 
         m = 1.0
         w = 1.0
@@ -126,11 +126,11 @@ class TestDVR(unittest.TestCase):
         y0 = dvr.at(c0)
         pd.DataFrame({"re":y0.real, "im":y0.imag}).to_csv("out/psi0.csv", index=None)
 
-        (c_diag, od) = uni_inte(h, dt, c0, opts={"inte":"diag"})
+        (c_diag, od) = uni_inte(h, dt, c0, opts={"inte":"diag"})        
         (c_kry10, o10) = uni_inte(h, dt, c0, opts={"inte":"krylov", "krylov_num":10})
         (c_kry20, o20) = uni_inte(h, dt, c0, opts={"inte":"krylov", "krylov_num":20})
         (c_kry60, o60) = uni_inte(h, dt, c0, opts={"inte":"krylov", "krylov_num":60})
-        (c_kry_full, of)  = uni_inte(h, dt, c0, opts={"inte":"krylov", "krylov_num":n})
+        (c_kry_full, of)  = uni_inte(h, dt, c0, opts={"inte":"krylov", "krylov_num":n})        
 
         self.assertAlmostEqual(1.0, norm(c_diag))
         self.assertAlmostEqual(1.0, norm(c_kry10))
