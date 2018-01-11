@@ -1,6 +1,7 @@
 import unittest
 import numpy as np
 import math
+from datetime import datetime
 
 import matplotlib.pyplot as plt
 
@@ -9,7 +10,7 @@ from naewdy2.dvr import *
 
 
 class TestDVR(unittest.TestCase):    
-    def test_at(self):
+    def _test_at(self):
         dx = 0.001
         x  = 0.3
         dvr = ExpDVR(3, -4.0, 4.0)
@@ -23,7 +24,7 @@ class TestDVR(unittest.TestCase):
         self.assertAlmostEqual((yp-ym)/(2*dx), y1, 6)
         self.assertAlmostEqual((yp+ym-2*y0)/(dx*dx), y2, 6)
     
-    def test_dmat(self):
+    def _test_dmat(self):
         # == calculation ==
         x0 = -2.0
         xN = +2.0        
@@ -46,18 +47,21 @@ class TestDVR(unittest.TestCase):
         c = np.zeros(dvr.num); c[j] = 1.0
         y1s = dvr.at(c, xs, nd=1)
         y2s = dvr.at(c, xs, nd=2)
-        
+
         self.assertAlmostEqual(np.dot(y0s, y1s)*dx, d1[i,j])
         self.assertAlmostEqual(np.dot(y0s, y2s)*dx, d2[i,j])
 
-    def test_fit(self):
+    def _test_fit(self):
+        print "fit begin"
         dvr = ExpDVR(12, -3.0, 3.0)
-        gauss = lambda x: 1.3*np.exp(-1.2*(x-0.1)**2)
-        fit_c = dvr.fit(gauss)
+        g = lambda x:1.3*np.exp(-1.2*(x-0.1)**2)
+        gs = g(dvr.xs)
+        c = dvr.fit(gs)
         x = 0.2
-        self.assertAlmostEqual(dvr.at(fit_c, x), gauss(x), 6)
+        self.assertAlmostEqual(dvr.at(c, x), g(x), 6)
+        print "fit end"
     
-    def test_harmo(self):
+    def _test_harmo(self):
 
         m = 2000.0
         k = 0.5
@@ -79,7 +83,9 @@ class TestDVR(unittest.TestCase):
         d2 = dvr.dmat(2)
         v  = np.diag([k/2*x*x for x in dvr.xs])
         h = -1/(2*m)*d2 + v
+
         (e,u) = eigh_sort(h)
+        print np.min(e)
 
         # -- check orthogonal --
         self.assertAlmostEqual(1.0, dot(u[:,0], u[:,0]))
@@ -96,7 +102,8 @@ class TestDVR(unittest.TestCase):
             if(y0*y1.real<0):
                 y1 = -y1
             self.assertAlmostEqual(y0, y1, 5, 'n={0}'.format(n))
-            
+        
+                        
     def test_krylov(self):
 
         m = 1.0
@@ -104,41 +111,43 @@ class TestDVR(unittest.TestCase):
         a = m*w/2
         x0 = 1.0
         p0 = 0.0
-        dvr = ExpDVR(128, -3.0, 3.0)
+        dvr = ExpDVR(128, -5.0, 5.0)
         n = dvr.num
         dt = 1.0
 
-        c0 = np.zeros(n, dtype=complex)
-        for a in range(len(dvr.xs)):
-            c0[a] = gauss(a=1.0, zeta=a, r0=x0, p0=p0, x=dvr.xs[a])
-            #c0 = np.ones(n, dtype=complex)
+        g0 = np.exp(-a*(dvr.xs-x0)**2 + 1j*p0*(dvr.xs-x0))
+        c0 = dvr.fit(g0)
         c0 /= norm(c0)
 
         h = np.zeros((n,n))
         h[:,:] = np.diag([m*w*w/2*x*x for x in dvr.xs]) -1/(2*m)*dvr.dmat(2)
 
-        c_diag = uni_inte(h, dt, c0, opts={"inte":"diag"})
-        c_kry10  = uni_inte(h, dt, c0, opts={"inte":"krylov", "krylov_num":10})
-        c_kry20  = uni_inte(h, dt, c0, opts={"inte":"krylov", "krylov_num":20})
-        #c_kry30  = uni_inte(h, dt, c0, krylov_num=30, inte="krylov")
-        c_kry_full  = uni_inte(h, dt, c0, opts={"inte":"krylov", "krylov_num":n})
+        pd.DataFrame({"val":dvr.xs}).to_csv("out/xs.csv", index=None)
+        y0 = dvr.at(c0)
+        pd.DataFrame({"re":y0.real, "im":y0.imag}).to_csv("out/psi0.csv", index=None)
 
-        print np.sum(abs(h-np.transpose(h.conj())))
+        (c_diag, od) = uni_inte(h, dt, c0, opts={"inte":"diag"})        
+        (c_kry10, o10) = uni_inte(h, dt, c0, opts={"inte":"krylov", "krylov_num":10})
+        (c_kry20, o20) = uni_inte(h, dt, c0, opts={"inte":"krylov", "krylov_num":20})
+        (c_kry60, o60) = uni_inte(h, dt, c0, opts={"inte":"krylov", "krylov_num":60})
+        (c_kry_full, of)  = uni_inte(h, dt, c0, opts={"inte":"krylov", "krylov_num":n})        
+
         self.assertAlmostEqual(1.0, norm(c_diag))
         self.assertAlmostEqual(1.0, norm(c_kry10))
 
+        print 
         print np.sum(abs(c_diag-c_kry10))/len(c_diag)
         print np.sum(abs(c_diag-c_kry20))/len(c_diag)
-        #print np.sum(abs(c_diag-c_kry30))/len(c_diag)
+        print np.sum(abs(c_diag-c_kry60))/len(c_diag)
         print np.sum(abs(c_diag-c_kry_full))/len(c_diag)
-        
+
     def test_sigma_H(self):
         m = 1.2
         w = 1.0
         a = m*w/2
         x0 = 1.0
         p0 = 0.0
-        dvr = ExpDVR(3, -3.0, 3.0)
+        dvr = ExpDVR(256, -5.0, 5.0)
         n = dvr.num
         dt = 1.0
         nel = 2
@@ -163,10 +172,70 @@ class TestDVR(unittest.TestCase):
 
         #c = np.array([(jn+ie)/1000.0 for jn in range(n) for ie in range(nel)])
         c = np.array([(jn+ie)/1000.0 for ie in range(nel) for jn in range(n) ])
-        Hc_sigma = sigma_H(hel, xij, D1, D2, m, c)
-        Hc_build = np.dot(build_H(hel, xij, D1, D2, m), c)
+
+        d0 = datetime.now()
+        Hc_sigma = sigma_H(hel, xij, D1, D2, m)(c)
+        d1 = datetime.now()
+        print "sigma", d1-d0
+
+        d0 = datetime.now()
+        H = build_H(hel, xij, D1, D2, m)
+        d1 = datetime.now()
+        print "build", d1-d0
+
+        d0 = datetime.now()
+        Hc_build = np.dot(H, c)
+        d1 = datetime.now()
+        print "dot", d1-d0
 
         self.assertAlmostEqual(0.0, np.sum(abs(Hc_sigma-Hc_build))/len(c))
-            
+
+    def _test_krylov_2state(self):
+        m = 1.2
+        w = 1.0
+        a = m*w/2
+        x0 = 1.0
+        p0 = 0.0
+        
+        dvr = ExpDVR(256, -5.0, 5.0)
+        n = dvr.num
+        dt = 1.0
+        nstate = 2
+
+        D1 = dvr.dmat(1)
+        D2 = dvr.dmat(2)        
+
+        hel = np.zeros((n,nstate,nstate))
+        hel[:,0,0] = [m*w*w/2*x*x     for x in dvr.xs]
+        hel[:,1,1] = [m*w*w/2*x*x+1.0 for x in dvr.xs]
+        hel[:,0,1] = [0.1*x           for x in dvr.xs]
+        hel[:,1,0] = hel[:,0,1]
+
+        xij = np.zeros((n,nstate,nstate))
+        xij[:,1,0] = [0.01*np.exp(-(x-1.0)**2) for x in dvr.xs]
+        xij[:,0,1] = -xij[:,1,0]
+
+        g0 = np.exp(-a*(dvr.xs-x0)**2 + 1j*p0*(dvr.xs-x0))
+        c0 = np.reshape(np.transpose(np.array([dvr.fit(g0), np.zeros(n)])), n*nstate)
+
+        
+        Hc = sigma_H(hel, xij, D1, D2, m)
+        print "build begin", datetime.now().strftime("%Y/%m/%d %H:%M:%S")
+        H  = build_H(hel, xij, D1, D2, m)
+        print "build end", datetime.now().strftime("%Y/%m/%d %H:%M:%S")
+        print
+        print "krylov begin", datetime.now().strftime("%Y/%m/%d %H:%M:%S")
+        (c1, o1) = uni_inte_krylov(Hc, dt, 10, c0)
+        print "krylov end", datetime.now().strftime("%Y/%m/%d %H:%M:%S")
+        print
+        print "diag begin", datetime.now().strftime("%Y/%m/%d %H:%M:%S")
+        (c2, o2) = uni_inte(H, dt, c0, opts={"inte":"diag"})
+        print "diag end", datetime.now().strftime("%Y/%m/%d %H:%M:%S")
+        print
+        print "krylov 2state"
+        print np.sum(abs(c1-c2))/len(c1)
+        
 if __name__=='__main__':
     unittest.main()
+    
+        

@@ -345,7 +345,7 @@ def uni_inte_diag(h, dt, c):
     (e,u) = np.linalg.eigh(h)
     uH = np.transpose(u.conj())
     c = uni_inte_eig(e,u,uH,dt,c)
-    return c
+    return (c, {"eig":e})
     
 def uni_inte_krylov(hc, dt, kn, c):
 
@@ -382,6 +382,9 @@ def uni_inte_krylov(hc, dt, kn, c):
         kh[k+1,  k] = kh[k,  k+1].conj()
         
     # -- propagate --
+    print "kh"
+    print kh[0,0:2]
+    print kh[1,0:2]
     (kw, ku) = np.linalg.eigh(kh)
     ck = np.exp(-1.0j*kw*dt) * ku[0,:].conj()
     ck = dot(ku, ck)
@@ -393,7 +396,7 @@ def uni_inte_krylov(hc, dt, kn, c):
             print a,b,hdot(u[:,a], u[:,b]),hdot(u[:,a],Hu[:,b])
     """
     
-    return c
+    return (c, {"kw":kw} )
     
 if __name__ == '__main__':
     x = np.array([[2.0, 1.1],
