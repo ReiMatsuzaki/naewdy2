@@ -41,8 +41,8 @@ def csv2mat(fn):
 
 def mat2csv(mat, csv, eps=None):
 
-    if(not os.path.exists(os.path.dirname(csv))):
-        os.makedirs(os.path.dirname(csv))
+    #    if(not os.path.exists(os.path.dirname(csv))):
+    #        os.makedirs(os.path.dirname(csv))
     
     n = len(mat.shape)
     if(n==1):
@@ -276,15 +276,6 @@ def vec2iv(vec):
         df = pd.DataFrame({ "i": np.array(ilist), "val": val})
     return df
 
-if __name__ == '__main__':
-    x = np.array([[2.0, 1.1],
-                  [2.1, 1.2],
-                  [3.2, 1.3]])
-    df = mat2ijv(x)
-    y = ijv2mat(df)
-    print(sum(abs(y-x)))
-
-
 def hdot(x, y):
     return dot(x.conj(), y)
 
@@ -404,3 +395,10 @@ def uni_inte_krylov(hc, dt, kn, c):
     
     return c
     
+if __name__ == '__main__':
+    x = np.array([[2.0, 1.1],
+                  [2.1, 1.2],
+                  [3.2, 1.3]])
+    df = mat2ijv(x)
+    y = ijv2mat(df)
+    print(sum(abs(y-x)))
