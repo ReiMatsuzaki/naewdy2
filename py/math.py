@@ -41,8 +41,8 @@ def csv2mat(fn):
 
 def mat2csv(mat, csv, eps=None):
 
-    if(not os.path.exists(os.path.dirname(csv))):
-        os.makedirs(os.path.dirname(csv))
+    #if(not os.path.exists(os.path.dirname(csv))):
+    #    os.makedirs(os.path.dirname(csv))
     
     n = len(mat.shape)
     if(n==1):
@@ -391,9 +391,6 @@ def uni_inte_krylov(hc, dt, kn, c):
         kh[k+1,  k] = kh[k,  k+1].conj()
         
     # -- propagate --
-    print "kh"
-    print kh[0,0:2]
-    print kh[1,0:2]
     (kw, ku) = np.linalg.eigh(kh)
     ck = np.exp(-1.0j*kw*dt) * ku[0,:].conj()
     ck = dot(ku, ck)
