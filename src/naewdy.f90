@@ -212,7 +212,7 @@ contains
     do n = 1, nstate_
     do j = 1, nmo
     do i = 1, nmo
-       write(ifile, '(i0,","i0,",",i0,",",i0,",",f20.10)') i,j,n,m,dm1(i,j,n,m)
+       write(ifile, '(i0,",",i0,",",i0,",",i0,",",f20.10)') i,j,n,m,dm1(i,j,n,m)
     end do
     end do
     end do

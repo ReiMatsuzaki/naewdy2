@@ -25,6 +25,12 @@ def csv2mat(fn):
     df = pd.read_csv(fn)
     cols = df.columns
 
+    if(len(cols)==1 and cols[0]=="val"):
+        return np.array(df["val"])
+
+    if(len(cols)==2 and "re" in cols and "im" in cols):
+        return np.array(df["re"]) + 1j * np.array(df["im"])
+
     if("re" in cols and "im" in cols):
         num_index = len(cols)-2
     else:
@@ -38,12 +44,14 @@ def csv2mat(fn):
         return ijkv2ten(df)
     elif(num_index==4):
         return ijklv2ten4(df)
+    elif(num_index==5):
+        return idxv_to_ten5(df)
+    else:
+        raise RuntimeError("not supported")
 
 def mat2csv(mat, csv, eps=None):
-
     #    if(not os.path.exists(os.path.dirname(csv))):
     #        os.makedirs(os.path.dirname(csv))
-    
     n = len(mat.shape)
     if(n==1):
         df = vec2iv(mat)
@@ -53,10 +61,91 @@ def mat2csv(mat, csv, eps=None):
         df = ten2ijkv(mat)
     elif(n==4):
         df = ten42ijklv(mat, eps)
+    elif(n==5):
+        df = ten5_to_idxv(mat, eps)
     else:
         raise RuntimeError("not supported")
     df.to_csv(csv, index=None)
+
+def idxv_to_ten5(df):
+
+    if(isinstance(df, str)):
+        df2 = pd.read_csv(df)
+        return ijklv2ten4(df2)
     
+    try:
+        ilist = df["i"]
+        jlist = df["j"]
+        klist = df["k"]
+        llist = df["l"]
+        mlist = df["m"]
+    except Exception as e:    
+        print(e.args)
+        raise RuntimeError("""invalid columns
+columns = {0}
+        """.format(df.columns))
+        
+    ni = max(ilist)
+    nj = max(jlist)
+    nk = max(klist)
+    nl = max(llist)
+    nm = max(mlist)
+    if("val" in df):
+        vlist = df["val"]
+        dtype = float
+    elif("re" in df and "im" in df):
+        vlist = df["re"] + 1.0j * df["im"]
+        dtype = complex
+    else:
+        raise RuntimeError("invalid columns")
+
+    mat = np.zeros((ni,nj,nk,nl,nm), dtype=dtype)
+    for (i,j,k,l,m,v) in zip(ilist,jlist,klist,llist,mlist,vlist):
+        mat[i-1,j-1,k-1,l-1,m-1]=v
+    return mat        
+
+def ten5_to_idxv(x, eps=None):
+    (n1,n2,n3,n4,n5) = np.shape(x)
+    ilist = []
+    jlist = []
+    klist = []
+    llist = []
+    mlist = []
+    vlist = []
+    for i in range(n1):
+        for j in range(n2):
+            for k in range(n3):
+                for l in range(n4):
+                    for m in range(n5):
+                        v = x[i,j,k,l,m]
+                        addq = True
+                        if(eps is not None):
+                            if(eps > abs(v)):
+                                addq = False
+                        if(addq):
+                            ilist.append(i+1)
+                            jlist.append(j+1)
+                            klist.append(k+1)
+                            llist.append(l+1)
+                            mlist.append(m+1)
+                            vlist.append(v)
+                        
+    i = np.array(ilist)
+    j = np.array(jlist)
+    k = np.array(klist)
+    l = np.array(llist)    
+    m = np.array(mlist)
+    v = np.array(vlist)
+    if(isinstance(x[0,0,0,0,0], complex)):
+        df = pd.DataFrame({"i":i, "j":j, "k":k, "l":l, "m":m,
+                           "re":v.real, "im":v.imag},
+                          columns = ["i","j","k","l", "m", "re","im"])
+    else:
+        df = pd.DataFrame({"i":i, "j":j, "k":k, "l":l, "m":m,
+                           "val":v},
+                          columns = ["i","j","k","l", "m", "val"])
+    return df
+            
 def ijklv2ten4(df):
 
     if(isinstance(df, str)):
@@ -127,7 +216,7 @@ def ten42ijklv(x, eps=None):
         df = pd.DataFrame({"i":i, "j":j, "k":k, "l":l, "val":v},
                            columns = ["i","j","k","l","val"])
     return df
-        
+
 def ijkv2ten(df):
     try:
         ilist = df["i"]
@@ -382,9 +471,6 @@ def uni_inte_krylov(hc, dt, kn, c):
         kh[k+1,  k] = kh[k,  k+1].conj()
         
     # -- propagate --
-    print "kh"
-    print kh[0,0:2]
-    print kh[1,0:2]
     (kw, ku) = np.linalg.eigh(kh)
     ck = np.exp(-1.0j*kw*dt) * ku[0,:].conj()
     ck = dot(ku, ck)

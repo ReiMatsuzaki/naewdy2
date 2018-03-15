@@ -228,6 +228,7 @@ def calc_xci(dir_dict, katom, dx, dir_res, m1=None, m2=None,
     
     xmo =  (dot(tr(cmo0), dot(smat, cmop-cmom))/(2*dx)
             + dot(tr(cmo0), dot(dzmat, cmo0)))
+    mat2csv(xmo, join(dir_res, "x_mo.csv"))
 
     print("CI begin")
     xci_mo = []
